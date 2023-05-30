@@ -7,6 +7,29 @@ const isAuthenticated = (apiKey) => {
 	return apiKey === API_KEY;
 }
 
+async function streamToString(stream) {
+	const reader = stream.getReader();
+	const decoder = new TextDecoder();
+  
+	let result = '';
+	while (true) {
+	  const { done, value } = await reader.read();
+  
+	  if (done) {
+		// End of the stream
+		break;
+	  }
+  
+	  // Convert the chunk (Uint8Array) to string and append to the result
+	  result += decoder.decode(value, { stream: true });
+	}
+  
+	// Close the reader
+	reader.releaseLock();
+  
+	return result;
+}
+
 class memcache {
 	constructor() {
 		this.objects = {}
@@ -21,7 +44,9 @@ class memcache {
 	new(item, body) {
 		this.objects[item] = {
 			expires: (new Date() / 1000) + this.maxAge,
-			body: body
+			// body is a ReadableStream, so we need to convert it to a string
+			body: body.toString(),
+			status: 200
 		}
 	}
 	isValid(item) {
@@ -62,22 +87,23 @@ const handleRequest = async (request) => {
 	if (!target) return new Response('no url provided', { status: 400 });
 
 	// fetch the url
-	let response;
+	let response, result;
 	let usedCache = false;
 	if (CACHE.contains(target) && CACHE.isValid(target)) {
 		response = CACHE.get(target);
+		result = response.body;
 		usedCache = true;
 	} else {
 		response = await fetch(target, {
 			headers: reqHeaders
 		});
-		CACHE.new(target, response.body)
+		result = await streamToString(response.body);
+		CACHE.new(target, result.toString())
 	}
 
 	// return the response HTML
-	return new Response(response.body, {
+	return new Response(result, {
 		status: response.status,
-		statusText: response.statusText,
 		headers: {...resHeaders, usedCache: usedCache}
 	});
 }

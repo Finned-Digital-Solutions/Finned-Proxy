@@ -26,6 +26,7 @@ API_KEY = "<a secure string here>"
   ``npm start``
 2. If you have not already, you will be prompted to sign in to Cloudflare.
 3. Test the application: ``curl "https://finned-proxy.npiqwxyai.workers.dev/?auth=<api key>&url=<url to retrieve>"``
+4. Publish the site to Cloudflare: ``npx wrangler publish``
 
 ## License
 MIT
